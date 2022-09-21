@@ -1,7 +1,7 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { Platform } from '@angular/cdk/platform';
-import { SwUpdate, VersionReadyEvent } from '@angular/service-worker';
+import { SwPush, SwUpdate, VersionReadyEvent } from '@angular/service-worker';
 import { filter, map } from 'rxjs';
 import { MatTableDataSource } from '@angular/material/table';
 import { MatPaginator } from '@angular/material/paginator';
@@ -26,10 +26,13 @@ export class AppComponent implements OnInit {
 
   title = 'angular-pwa-test';
 
+  public readonly VAPID_PUBLIC_KEY = 'BCyma2bOYToCORJydRye7UwUTCMtFOaWQ0ya7_5pqpC6hHikrQwOi555a690vpMS47-yQfyHEg0QrylqavUyeqU';
+
   constructor(
     private platform: Platform,
     private swUpdate: SwUpdate,
-    private restApiService: RestApiService
+    private restApiService: RestApiService,
+    private swPush: SwPush
     ) {
     this.isOnline = false;
     this.modalVersion = false;
@@ -44,11 +47,19 @@ export class AppComponent implements OnInit {
 
   public ngOnInit(): void {
     this.updateOnlineStatus();
+    this.subscribeToNotifications();
 
     window.addEventListener('online',  this.updateOnlineStatus.bind(this));
     window.addEventListener('offline', this.updateOnlineStatus.bind(this));
 
     if (this.swUpdate.isEnabled) {
+      this.swUpdate.available.subscribe(() => {
+
+        if(confirm("New version available. Load New Version?")) {
+
+            window.location.reload();
+        }
+    });
       this.swUpdate.versionUpdates.pipe(
         filter((evt: any): evt is VersionReadyEvent => evt.type === 'VERSION_READY'),
         map((evt: any) => {
@@ -99,6 +110,15 @@ export class AppComponent implements OnInit {
 
   public closePwa(): void {
     this.modalPwaPlatform = undefined;
+  }
+
+  subscribeToNotifications(): any {
+    this.swPush.requestSubscription({
+      serverPublicKey: this.VAPID_PUBLIC_KEY
+    }).then(sub => {
+      const token = JSON.parse(JSON.stringify(sub));
+      console.log('token', token);
+    }).catch(err => console.error('ERROR :( ', err))
   }
 }
 
